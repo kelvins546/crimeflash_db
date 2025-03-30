@@ -51,11 +51,13 @@ if (isset($_POST['create_officer'])) {
     $rank = $_POST['rank'];
     $station = $_POST['station'];
     $email = $_POST['email'];
+    $station = $_POST['station'];
     $contact_number = $_POST['contact_number'];
     $status = $_POST['status'];
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
 
-    $query = "INSERT INTO OFFICER_profiles (badge_number, first_name, last_name, rank, station, email, contact_number, status)
-              VALUES ('$badge_number', '$first_name', '$last_name', '$rank', '$station', '$email', '$contact_number', '$status')";
+    $query = "INSERT INTO OFFICER_profiles (badge_number, first_name, last_name, rank, station, email, contact_number, status,password)
+              VALUES ('$badge_number', '$first_name', '$last_name', '$rank', '$station', '$email', '$contact_number', '$status','$password')";
 
     if ($conn->query($query)) {
         echo "Officer created successfully!";
@@ -63,7 +65,6 @@ if (isset($_POST['create_officer'])) {
         echo "Error: " . $conn->error;
     }
 }
-
 
 
 
@@ -157,7 +158,7 @@ if (isset($_POST['create_officer'])) {
         <nav class="sidenav">
             <h2>Admin Panel</h2>
             <ul>
-                <li><a href="adminpanel.php">Dashboard</a></li>
+                <li><a href="">Dashboard</a></li>
                 <li><a href="view_reports.php">View Crime Reports</a></li>
                 <li><a href="adminpanel.php#add_user_form">Add User</a></li>
                 <li><a href="adminpanel.php#add_officer_form">Add Officer</a></li>
@@ -190,8 +191,47 @@ if (isset($_POST['create_officer'])) {
                 <input type="text" name="badge_number" placeholder="Badge Number" required>
                 <input type="text" name="first_name" placeholder="First Name" required>
                 <input type="text" name="last_name" placeholder="Last Name" required>
-                <input type="text" name="rank" placeholder="Rank" required>
-                <input type="text" name="station" placeholder="Station" required>
+
+                <label for="rank">Rank:</label>
+                <select name="rank" id="rank" required>
+                    <option value="" disabled selected>Select a rank</option>
+                    <option value="Police General">Police General</option>
+                    <option value="Police Lieutenant General">Police Lieutenant General</option>
+                    <option value="Police Major General">Police Major General</option>
+                    <option value="Police Brigadier General">Police Brigadier General</option>
+                    <option value="Police Colonel">Police Colonel</option>
+                    <option value="Police Lieutenant Colonel">Police Lieutenant Colonel</option>
+                    <option value="Police Major">Police Major</option>
+                    <option value="Police Captain">Police Captain</option>
+                    <option value="Police Lieutenant">Police Lieutenant</option>
+                    <option value="Police Executive Master Sergeant">Police Executive Master Sergeant</option>
+                    <option value="Police Chief Master Sergeant">Police Chief Master Sergeant</option>
+                    <option value="Police Senior Master Sergeant">Police Senior Master Sergeant</option>
+                    <option value="Police Master Sergeant">Police Master Sergeant</option>
+                    <option value="Police Staff Sergeant">Police Staff Sergeant</option>
+                    <option value="Police Corporal">Police Corporal</option>
+                    <option value="Patrolman/Patrolwoman">Patrolman/Patrolwoman</option>
+                </select>
+
+
+
+                <label for="station">Station:</label>
+                <select name="station" id="station" required>
+                    <option value="">Select Station</option>
+                    <option value="S1">S1</option>
+                    <option value="S2">S2</option>
+                    <option value="S3">S3</option>
+                    <option value="S4">S4</option>
+                    <option value="S5">S5</option>
+                    <option value="S6">S6</option>
+                    <option value="S7">S7</option>
+                    <option value="S8">S8</option>
+                    <option value="S9">S9</option>
+                    <option value="S10">S10</option>
+                    <option value="S11">S11</option>
+                    <option value="S12">S12</option>
+                </select>
+
                 <input type="email" name="email" placeholder="Email" required>
                 <input type="text" name="contact_number" placeholder="Contact Number" required>
                 <select name="status">
@@ -200,6 +240,7 @@ if (isset($_POST['create_officer'])) {
                     <option value="off-duty">Off Duty</option>
                     <option value="suspended">Suspended</option>
                 </select>
+                <input type="password" name="password" placeholder="Password" required>
                 <button type="submit" name="create_officer">Create Officer</button>
             </form>
         </div>

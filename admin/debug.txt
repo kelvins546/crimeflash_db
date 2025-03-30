@@ -1,0 +1,9 @@
+Array
+(
+    [station] => S2
+    [officer] => Array
+        (
+            [0] => 6
+        )
+
+)

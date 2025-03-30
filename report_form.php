@@ -97,6 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Submit Crime Report</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <style>
     body {
         font-family: Arial, sans-serif;
@@ -176,9 +178,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form action="" method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="media">Upload Media:</label>
-                <!-- Add onchange to trigger previewMedia function -->
                 <input type="file" id="media" name="media" onchange="previewMedia()">
             </div>
+
+            <!-- Add this container for media preview -->
+            <div id="mediaPreviewContainer"></div>
+
 
 
             <div class="form-group">
@@ -215,6 +220,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-group">
                 <button type="button" onclick="getLocation()">Use My Location</button>
             </div>
+            <!-- Map container -->
+            <div id="map" style="height: 400px; width: 100%;"></div>
 
             <div class="form-group">
                 <label for="urgency_level">Urgency Level:</label>
@@ -239,21 +246,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
-    function getLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                document.getElementById('latitude').value = position.coords.latitude;
-                document.getElementById('longitude').value = position.coords.longitude;
-            }, function() {
-                alert("Geolocation service failed.");
-            });
-        } else {
-            alert("Your browser does not support geolocation.");
-        }
-    }
-
-
-
     function previewMedia() {
         var file = document.getElementById("media").files[0];
         var previewContainer = document.getElementById("mediaPreviewContainer");
@@ -290,7 +282,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 previewContainer.innerHTML = "<p>Preview not available for this file type.</p>";
             }
         }
+
     }
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+
+                // Update the form inputs with the user's latitude and longitude
+                document.getElementById('latitude').value = latitude;
+                document.getElementById('longitude').value = longitude;
+
+                // Move the map to the user's location and update the marker
+                const userLocation = [latitude, longitude];
+                map.setView(userLocation, 13); // Zoom to level 13 (closer view)
+                marker.setLatLng(userLocation);
+            }, function() {
+                alert("Geolocation service failed.");
+            });
+        } else {
+            alert("Your browser does not support geolocation.");
+        }
+    }
+
+    let map;
+    let marker;
+
+    function initMap() {
+        // Create the map centered at a default location
+        map = L.map('map').setView([0, 0], 2); // Default to coordinates 0, 0 with zoom level 2
+
+        // Add a tile layer (OpenStreetMap by default)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Initialize the marker
+        marker = L.marker([0, 0]).addTo(map);
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        initMap();
+    });
     </script>
 </body>
 

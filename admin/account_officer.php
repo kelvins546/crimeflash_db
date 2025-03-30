@@ -1,0 +1,630 @@
+<?php
+session_start();
+
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "crimeflash_db";
+
+// establish database connection
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("connection failed: " . $conn->connect_error);
+}
+if (isset($_POST['logout'])) {
+    session_destroy(); // Destroy the session
+    header('Location: admin_login.php'); // Redirect to login page
+    exit();
+}
+
+// initialize messages
+$success_message = $error_message = "";
+
+// check if form is submitted
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['create_user'])) {
+    // trim inputs
+    $first_name = trim($_POST['first_name']);
+    $last_name = trim($_POST['last_name']);
+    $email = trim($_POST['email']);
+    $contact_number = trim($_POST['contact_number']);
+    $address = trim($_POST['address']);
+    $shift_schedule = trim($_POST['shift_schedule']);
+    $badge_number = trim($_POST['badge_number']);
+    $station = trim($_POST['station']);
+    $rank = trim($_POST['rank']);
+    $password = trim($_POST['password']);
+
+    // validate required fields
+    $missing_fields = [];
+    if (empty($first_name)) $missing_fields[] = "First Name";
+    if (empty($last_name)) $missing_fields[] = "Last Name";
+    if (empty($email)) $missing_fields[] = "Email";
+    if (empty($contact_number)) $missing_fields[] = "Contact Number";
+    if (empty($badge_number)) $missing_fields[] = "Badge Number";
+    if (empty($station)) $missing_fields[] = "Station";
+    if (empty($rank)) $missing_fields[] = "Rank";
+    if (empty($password)) $missing_fields[] = "Password";
+
+    if (!empty($missing_fields)) {
+        $_SESSION['error_message'] = "missing fields: " . implode(", ", $missing_fields);
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $_SESSION['error_message'] = "invalid email format!";
+    } else {
+        // check if email already exists
+        $check_email = $conn->prepare("SELECT id FROM officer_profiles WHERE email = ?");
+        $check_email->bind_param("s", $email);
+        $check_email->execute();
+        $check_email->store_result();
+
+        if ($check_email->num_rows > 0) {
+            $_SESSION['error_message'] = "email already exists!";
+        } else {
+            // hash password
+            $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+
+            // insert officer
+            $stmt = $conn->prepare("INSERT INTO officer_profiles (last_name, first_name, email, contact_number, address, shift_schedule, badge_number, station, rank, password) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssssssss", $last_name, $first_name, $email, $contact_number, $address, $shift_schedule, $badge_number, $station, $rank, $hashed_password);
+
+            if ($stmt->execute()) {
+                $_SESSION['success_message'] = "officer created successfully!";
+            } else {
+                $_SESSION['error_message'] = "error: " . $stmt->error;
+            }
+
+            $stmt->close();
+        }
+        $check_email->close();
+    }
+
+    // reload page after form submission
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
+}
+
+
+// fetch officers for table display
+$result = $conn->query("SELECT * FROM officer_profiles");
+
+// close connection after fetching officers
+$conn->close();
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Reports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+        rel="stylesheet">
+    <script src="https://kit.fontawesome.com/bac1e4ca00.js" crossorigin="anonymous"></script>
+    <style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        width: 100%;
+        font-family: "Poppins", sans-serif;
+        min-height: 100vh;
+        color: #000;
+    }
+
+    .wrapper {
+        display: flex;
+        flex-direction: row;
+    }
+
+    .top-nav {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        height: 70px;
+        background-color: #F3ce68;
+        justify-content: space-between;
+        position: fixed;
+        top: 0;
+        left: 0;
+        color: #000;
+    }
+
+    .top-nav ul {
+        display: flex;
+        list-style: none;
+        margin-left: 300px;
+    }
+
+    .top-nav li a {
+        text-decoration: none;
+        color: #000;
+        font-size: 1.1rem;
+        padding-left: 30px;
+    }
+
+    .top-nav li a:hover {
+        text-decoration: underline;
+    }
+
+    .top-nav .admin {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 30px;
+    }
+
+    .admin img {
+        object-fit: contain;
+        width: 90px;
+        height: 80px;
+        margin-bottom: 10px;
+    }
+
+    .admin h3 {
+        color: #000;
+        font-size: 1.5rem;
+    }
+
+    .sidenav {
+        width: 250px;
+        min-height: 100vh;
+        background-color: #edb926;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+
+    }
+
+    .sidenav ul {
+        align-items: center;
+        list-style: none;
+        margin-top: 100px;
+
+
+    }
+
+    .sidenav li {
+        margin-bottom: 30px;
+    }
+
+    .sidenav li a {
+        text-decoration: none;
+        color: #000;
+        font-size: 1.1rem;
+        padding: 5px;
+    }
+
+    .sidenav li a:hover {
+        text-decoration: underline;
+
+    }
+
+    .hero {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .search-container {
+        margin-left: 120px;
+        margin-top: 100px;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-container input {
+        width: 450px;
+        font-size: 1.1rem;
+        padding: 10px 40px 10px 20px;
+        border: none;
+        border-radius: 25px;
+        box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+        transition: .3s ease-in-out;
+    }
+
+    .search-container i {
+        position: absolute;
+        left: 37%;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        font-size: 1.3rem;
+        color: #888;
+    }
+
+    .hero-report {
+        display: flex;
+        margin-top: 30px;
+
+    }
+
+    .container-table {
+        margin-top: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+    }
+
+    table {
+        margin-left: 30px;
+    }
+
+    th,
+    td {
+        padding: 14px;
+        width: 200px;
+        text-align: center;
+        border-left: 1px solid black;
+        font-weight: normal;
+
+    }
+
+    th {
+        font-size: 16px;
+        color: #000;
+        background-color: #EDB926;
+
+    }
+
+    .btn {
+        background-color: #edb926;
+        color: #000;
+        padding: 6px 10px;
+        font-size: 14px;
+        font-weight: normal;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+
+    }
+
+
+    .btn:hover {
+        background-color: #d4a514;
+        box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        transform: translateY(-2px);
+
+    }
+
+
+    .btn:active {
+        background-color: #b78b0f;
+        transform: translateY(1px);
+
+    }
+
+    .report-container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        width: 600px;
+        display: flex;
+        flex-direction: column;
+        margin-left: 250px;
+    }
+
+    .title {
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .divider {
+        border-top: 1px solid #ccc;
+        margin: 10px 0;
+    }
+
+    .content {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .content img {
+        width: 45%;
+        border-radius: 5px;
+    }
+
+    .details {
+        margin-top: 10px;
+    }
+
+    .details p {
+        margin: 5px 0;
+    }
+
+    .buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+
+    .buttons button {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .suspicious {
+        background: darkred;
+        color: white;
+    }
+
+    .legitimate {
+        background: goldenrod;
+        color: #000;
+    }
+
+    .select-phase {
+        width: 100%;
+        margin-top: 10px;
+    }
+    </style>
+    <style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        background: #fff;
+        padding: 20px;
+        margin: 10% auto;
+        width: 30%;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .close {
+        float: right;
+        font-size: 28px;
+        cursor: pointer;
+    }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="navigation-bar">
+            <nav class="top-nav">
+                <ul>
+                    <li><a href="admin_panel.html">Accounts</a></li>
+                    <li><a href="incident_pending_report.php">Incidents Records</a></li>
+                    <li><a href="archieve.html">Archive</a></li>
+                </ul>
+                <div class="admin">
+                    <h3>Welcome Admin</h3>
+                    <img src="images/CRIMELOGOREMOVEDBG 1.png" alt="">
+                </div>
+            </nav>
+            <aside class="sidenav">
+                <ul>
+                    <li>
+                        <a href="admin_panel.php">
+                            <i class="fa-solid fa-circle-user"></i>
+                            <span>User Account</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="account_officer.php">
+                            <i class="fa-solid fa-circle-user"></i>
+                            <span>Officer Account</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="account_barangay.php">
+                            <i class=" fa-solid fa-circle-user"></i>
+                            <span>Barangay Account</span>
+                        </a>
+                    </li>
+                    </li>
+                    <li>
+                        <a href="account_clerk.php">
+                            <i class=" fa-solid fa-circle-user"></i>
+                            <span>Clerk Account</span>
+                        </a>
+                    </li>
+                    <li>
+                        <form method="post" style="display: inline;">
+                            <button type="submit" name="logout">Logout</button>
+                        </form>
+
+                    </li>
+
+                </ul>
+            </aside>
+        </div>
+        <main class="hero">
+            <div class="search-nbtn">
+                <div class="search-container">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Search Incident ..." id="search-bar" onkeyup="search()">
+                </div>
+                <!-- create user button -->
+                <button class="btn btn-primary" onclick="openModal()">Create Officer</button>
+
+                <!-- success/error messages -->
+                <?php if (isset($_SESSION['success_message'])) : ?>
+                <p class="success"><?= $_SESSION['success_message'];
+                                        unset($_SESSION['success_message']); ?></p>
+                <?php endif; ?>
+
+                <?php if (isset($_SESSION['error_message'])) : ?>
+                <p class="error"><?= $_SESSION['error_message'];
+                                        unset($_SESSION['error_message']); ?></p>
+                <?php endif; ?>
+
+                <!--this should be in incident_details_report
+          <div class="hero-report">
+            <div class="report-container">
+                <div class="title">Phase 1, Simbahan <br> Bagong Silang, Caloocan City</div>
+                <div class="divider"></div>
+                <div class="content">
+                    <img src="images/image 7.png" alt="Map Location">
+                    <img src="images/image (1).png" alt="Innt Image">
+                </div>
+                <div class="details">
+                    <p><i>Time Reported: 15:30</i></p>
+                    <p><i>Station Status: <span style="color: red;">Suspicious</span></i></p>
+                    <p><b>Name:</b> Gian Felipe</p>
+                    <p><b>Contact:</b> 09123456789</p>
+                    <p><b>Description:</b> May nakita po akong nakahandusay na tao sa kalsada na puno ng dugo sa harap
+                        ng Simbahan</p>
+                </div>
+                <div class="buttons">
+                    <button class="suspicious">Mark as Suspicious</button>
+                    <button class="legitimate">Mark as Legitimate</button>
+                </div>
+                <select class="select-phase">
+                    <option>Phase 1</option>
+                    <option>Phase 2</option>
+                    <option>Phase 3</option>
+                </select>
+            </div>
+        </div>-->
+                <!-- create user modal -->
+                <div id="userModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close" onclick="closeModal()">&times;</span>
+                        <h2>Create Officer</h2>
+                        <form method="POST" action="">
+                            <input type="text" name="first_name" placeholder="First Name" required>
+                            <input type="text" name="last_name" placeholder="Last Name" required>
+                            <input type="email" name="email" placeholder="Email" required>
+                            <input type="text" name="contact_number" placeholder="Contact Number" required>
+
+                            <select name="rank" id="rank" required>
+                                <option value="" disabled selected>Select a rank</option>
+                                <option value="Police General">Police General</option>
+                                <option value="Police Lieutenant General">Police Lieutenant General</option>
+                                <option value="Police Major General">Police Major General</option>
+                                <option value="Police Brigadier General">Police Brigadier General</option>
+                                <option value="Police Colonel">Police Colonel</option>
+                                <option value="Police Lieutenant Colonel">Police Lieutenant Colonel</option>
+                                <option value="Police Major">Police Major</option>
+                                <option value="Police Captain">Police Captain</option>
+                                <option value="Police Lieutenant">Police Lieutenant</option>
+                                <option value="Police Executive Master Sergeant">Police Executive Master Sergeant
+                                </option>
+                                <option value="Police Chief Master Sergeant">Police Chief Master Sergeant</option>
+                                <option value="Police Senior Master Sergeant">Police Senior Master Sergeant</option>
+                                <option value="Police Master Sergeant">Police Master Sergeant</option>
+                                <option value="Police Staff Sergeant">Police Staff Sergeant</option>
+                                <option value="Police Corporal">Police Corporal</option>
+                                <option value="Patrolman/Patrolwoman">Patrolman/Patrolwoman</option>
+                            </select>
+
+                            <select name="station" id="station" required>
+                                <option value="">Select Station</option>
+                                <option value="S1">S1</option>
+                                <option value="S2">S2</option>
+                                <option value="S3">S3</option>
+                                <option value="S4">S4</option>
+                                <option value="S5">S5</option>
+                                <option value="S6">S6</option>
+                                <option value="S7">S7</option>
+                                <option value="S8">S8</option>
+                                <option value="S9">S9</option>
+                                <option value="S10">S10</option>
+                                <option value="S11">S11</option>
+                                <option value="S12">S12</option>
+                            </select>
+
+                            <input type="text" name="badge_number" placeholder="Badge Number" required>
+                            <textarea name="address" placeholder="Address"></textarea>
+                            <select name="shift_schedule">
+                                <option value="" disabled selected>Select Shift Schedule</option>
+                                <option value="Morning Shift">Morning Shift (6 AM - 2 PM)</option>
+                                <option value="Afternoon Shift">Afternoon Shift (2 PM - 10 PM)</option>
+                                <option value="Night Shift">Night Shift (10 PM - 6 AM)</option>
+                            </select>
+
+                            <input type="password" name="password" placeholder="Password" required>
+                            <button type="submit" name="create_user">Create Officer</button>
+                        </form>
+
+                    </div>
+                </div>
+
+                <div class="container-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Surname</th>
+                                <th>Contact</th>
+                                <th>Rank</th>
+                                <th>Address</th>
+                                <th>Shift Schedule</th>
+                                <th>Badge Number</th>
+                                <th>Station</th>
+                                <th>Action</th> <!-- Column for Action button -->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            if ($result->num_rows > 0) {
+                                while ($row = $result->fetch_assoc()) {
+                                    echo "<tr>";
+                                    echo "<td>" . htmlspecialchars($row['email']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['last_name']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['contact_number']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['rank']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['address']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['shift_schedule']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['badge_number']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['station']) . "</td>";
+                                    echo "<td><a href='officer_details.php?officer_id=" . $row['id'] . "' class='btn'>View</a></td>";
+                                    echo "</tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='9'>No officers found.</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+    function openModal() {
+        document.getElementById("userModal").style.display = "block";
+    }
+
+    function closeModal() {
+        document.getElementById("userModal").style.display = "none";
+    }
+
+    window.onclick = function(event) {
+        let modal = document.getElementById("userModal");
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+    </script>
+</body>
+
+</html>

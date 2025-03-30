@@ -1,6 +1,5 @@
 <?php
-// Include the database connection file
-// You can include a simple database connection directly here, for example:
+session_start();
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -27,8 +26,6 @@ $result = $conn->query($query);
     <title>View Crime Reports</title>
     <link rel="stylesheet" href="">
     <style>
-    /* styles.css */
-
     body {
         font-family: Arial, sans-serif;
         background-color: #f4f4f4;
@@ -96,25 +93,30 @@ $result = $conn->query($query);
         background-color: #2c3e50;
         color: white;
         padding: 20px;
+        min-height: 100vh;
     }
 
     .sidenav h2 {
         text-align: center;
+        color: white;
+        font-size: 2rem;
+
     }
 
     .sidenav ul {
         list-style-type: none;
-        padding: 0;
+        padding-left: 20px;
+
     }
 
     .sidenav ul li {
-        margin: 15px 0;
+        margin: 30px 0;
     }
 
     .sidenav ul li a {
         color: white;
         text-decoration: none;
-        font-size: 18px;
+        font-size: 20px;
     }
 
     .sidenav ul li a:hover {
@@ -163,7 +165,6 @@ $result = $conn->query($query);
                         while ($row = $result->fetch_assoc()) {
                             echo "<tr>";
                             echo "<td>" . $row['id'] . "</td>";
-
                             echo "<td>" . $row['description'] . "</td>";
                             echo "<td>" . $row['created_at'] . "</td>";
                             echo "<td>" . $row['location'] . "</td>";
