@@ -166,7 +166,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['status'], $_POST['repo
 $image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png"; // Use default if empty
 
 // Ensure correct relative path
-if (!file_exists("../" . $image_path)) {
+if (!file_exists("../uploads" . $image_path)) {
     $image_path = "uploads/default.png"; // Fallback image
 }
 

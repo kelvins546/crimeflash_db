@@ -232,8 +232,8 @@ while ($row = $result->fetch_assoc()) {
             <span class="badge bg-success">Active</span>
         </div>
         <ul class="menu-items">
-            <li><a href="../police/policereport.html"><i class="fa-solid fa-folder"></i> ASSIGNED CASES</a></li>
-            <li><a href="../police/policeprofile.html"><i class="fa-solid fa-user"></i> PROFILE</a></li>
+            <li><a href="../officer/policereport.php"><i class="fa-solid fa-folder"></i> ASSIGNED CASES</a></li>
+            <li><a href="../officer/policeprofile.php"><i class="fa-solid fa-user"></i> PROFILE</a></li>
         </ul>
         <div class="logout">
             <i class="fa-solid fa-sign-out-alt"></i> Logout
@@ -242,6 +242,7 @@ while ($row = $result->fetch_assoc()) {
 
 
     <!-- Report Section -->
+    <!-- In the reports list page -->
     <div class="container mt-4">
         <h4 class="text-center fw-bold">reports/notification</h4>
 
@@ -250,24 +251,28 @@ while ($row = $result->fetch_assoc()) {
             <?php foreach ($reports as $report): ?>
             <div class="card-custom col-10">
                 <div class="card-content">
-                    <p><strong>location:</strong> <?= htmlspecialchars($report["location"]) ?></p>
-                    <p><strong>type of crime:</strong> <?= htmlspecialchars($report["crime_type_id"]) ?></p>
-                    <p><strong>description:</strong> <?= htmlspecialchars($report["description"]) ?></p>
-                    <p><strong>contact:</strong> <?= htmlspecialchars($report["contact_number"]) ?></p>
-                    <p class="text-muted"><em>date reported: <?= htmlspecialchars($report["created_at"]) ?></em></p>
-                    <p class="status-legitimate">station status: <?= htmlspecialchars($report["verification_status"]) ?>
+                    <p><strong>Location:</strong> <?= htmlspecialchars($report["location"]) ?></p>
+                    <p><strong>Crime Type:</strong> <?= htmlspecialchars($report["crime_type_id"]) ?></p>
+                    <p><strong>Description:</strong> <?= htmlspecialchars($report["description"]) ?></p>
+                    <p><strong>Contact:</strong> <?= htmlspecialchars($report["contact_number"]) ?></p>
+                    <p class="text-muted"><em>Date Reported: <?= htmlspecialchars($report["created_at"]) ?></em></p>
+                    <p class="status-legitimate">Station Status: <?= htmlspecialchars($report["verification_status"]) ?>
                     </p>
                     <button class="btn btn-custom w-100">
-                        <a href="policeview_report.php?id=<?= $report["id"] ?>">view details</a>
+                        <a href="policeview_report.php?id=<?= $report["id"] ?>">View Details</a>
                     </button>
                 </div>
             </div>
             <?php endforeach; ?>
         </div>
         <?php else: ?>
-        <p class="text-center mt-4">no reports assigned to you at the moment.</p>
+        <p class="text-center mt-4">No reports assigned to you at the moment.</p>
         <?php endif; ?>
     </div>
+
+    <!-- In the policeview_report.php -->
+
+
     <script>
     document.getElementById("menu-toggle").addEventListener("click", function() {
         document.getElementById("sidebar").classList.add("active");
