@@ -82,6 +82,7 @@ $conn->close();
         font-family: "Poppins", sans-serif;
         min-height: 100vh;
         color: #000;
+        z-index: -1;
     }
 
     .wrapper {
@@ -100,12 +101,15 @@ $conn->close();
         top: 0;
         left: 0;
         color: #000;
+
     }
 
-    .top-nav ul {
+
+    .top-nav .navtoh {
         display: flex;
-        list-style: none;
         margin-left: 300px;
+        list-style: none;
+
     }
 
     .top-nav li a {
@@ -181,9 +185,10 @@ $conn->close();
     .search-container {
         margin-left: 120px;
         margin-top: 100px;
-        position: relative;
         display: flex;
         align-items: center;
+        z-index: 1;
+        /* Reset z-index to avoid any unintended overlap */
     }
 
     .search-container input {
@@ -198,13 +203,15 @@ $conn->close();
 
     .search-container i {
         position: absolute;
-        left: 37%;
-        top: 50%;
+        left: 780px;
+
+        top: 16.5%;
         transform: translateY(-50%);
         cursor: pointer;
         font-size: 1.3rem;
         color: #888;
     }
+
 
     .hero-report {
         display: flex;
@@ -220,29 +227,86 @@ $conn->close();
 
     }
 
+    /* Table styling */
     table {
-        margin-left: 30px;
+        margin-left: 120px;
+        border-collapse: collapse;
+        border-radius: 10px;
+        /* Rounded corners for the whole table */
+        overflow: hidden;
+        /* Ensures that rounded corners are visible */
+        width: 100%;
+
     }
 
+    /* Table headers */
     th,
     td {
         padding: 14px;
-        width: 200px;
         text-align: center;
-        border-left: 1px solid black;
-        font-weight: normal;
+        border: 1px solid black;
 
+        font-weight: normal;
     }
 
+    /* Table header styling */
     th {
         font-size: 16px;
         color: #000;
         background-color: #EDB926;
-
     }
 
+    /* Add line between rows */
+    tr:nth-child(even) {
+        background-color: #f2f2f2;
+        /* Alternating row color for better readability */
+    }
+
+    tr:hover {
+        background-color: #ddd;
+        /* Light gray on row hover */
+    }
+
+
+    /* Suspended Button */
+    .btn-suspended {
+        background-color: #e74c3c;
+        /* Red color for suspended */
+        color: #fff;
+        /* White text for contrast */
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: normal;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .btn-suspended:hover {
+        background-color: #c0392b;
+        /* Darker red on hover */
+        box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        /* Enhanced shadow on hover */
+        transform: translateY(-2px);
+        /* Lift button effect */
+    }
+
+    .btn-suspended:active {
+        background-color: #a93226;
+        /* Even darker red when pressed */
+        transform: translateY(1px);
+        /* Slight downward movement for pressed effect */
+    }
+
+    /* General Button */
     .btn {
         background-color: #edb926;
+        /* Original button color */
         color: #000;
         padding: 6px 10px;
         font-size: 14px;
@@ -254,23 +318,60 @@ $conn->close();
         box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
         text-decoration: none;
         display: inline-block;
-
     }
-
 
     .btn:hover {
         background-color: #d4a514;
+        /* Darken color on hover */
         box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        /* Enhanced shadow on hover */
         transform: translateY(-2px);
-
+        /* Lift button effect */
     }
-
 
     .btn:active {
         background-color: #b78b0f;
+        /* Darker color when pressed */
         transform: translateY(1px);
-
+        /* Slight downward movement for pressed effect */
     }
+
+    /* Edit Button - Gray color */
+    .btn-edit {
+        background-color: #95a5a6;
+        /* Gray color for editing */
+        color: #fff;
+        /* White text */
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: normal;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-edit:hover {
+        background-color: #7f8c8d;
+        /* Darker gray on hover */
+        box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        /* Enhanced shadow on hover */
+        transform: translateY(-2px);
+        /* Lift button effect */
+    }
+
+    .btn-edit:active {
+        background-color: #707b7c;
+        /* Even darker gray when pressed */
+        transform: translateY(1px);
+        /* Slight downward movement for pressed effect */
+    }
+
+
+
 
     .report-container {
         background: white;
@@ -366,6 +467,48 @@ $conn->close();
         font-size: 28px;
         cursor: pointer;
     }
+
+    /* Make the dropdown menu hidden by default */
+    .dropdown-menu {
+        display: none !important;
+        position: absolute;
+        background-color: white;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        min-width: 200px;
+        z-index: 999000 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        left: 0px !important;
+        /* Align dropdown to the left of the parent */
+        top: 100%;
+        /* Position it directly below the parent */
+        border-radius: 5px;
+    }
+
+    /* Show the dropdown when hovering over the parent */
+    .dropdown:hover .dropdown-menu {
+        display: block !important;
+    }
+
+    /* Set the parent li to position relative so we can position the dropdown properly */
+    .dropdown {
+        position: relative;
+    }
+
+    /* Optional: Ensure that dropdown items look better */
+    .dropdown-menu li a {
+        padding: 10px 15px;
+        display: block;
+        color: #333;
+        text-decoration: none;
+        z-index: 999000;
+        font-size: 16px;
+    }
+
+    .dropdown-menu li a:hover {
+        background-color: #f0f0f0;
+    }
     </style>
 </head>
 
@@ -373,11 +516,23 @@ $conn->close();
     <div class="wrapper">
         <div class="navigation-bar">
             <nav class="top-nav">
-                <ul>
-                    <li><a href="admin_panel.html">Accounts</a></li>
+                <div class="navtoh">
+
+
+
+                    <div class="nav">
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle">Accounts ▾</a>
+                            <ul class="dropdown-menu">
+                                <li><a href="active_accounts.php">Active Accounts</a></li>
+                                <li><a href="suspended_accounts.php">Suspended Accounts</a></li>
+                            </ul>
+                        </li>
+                    </div>
                     <li><a href="incident_pending_report.php">Incidents Records</a></li>
                     <li><a href="archieve.html">Archive</a></li>
-                </ul>
+
+                </div>
                 <div class="admin">
                     <h3>Welcome Admin</h3>
                     <img src="images/CRIMELOGOREMOVEDBG 1.png" alt="">
@@ -509,7 +664,10 @@ $conn->close();
                                     echo "<td>" . $row['address'] . "</td>";
 
 
-                                    echo "<td><a href='incident_details_pending.php?report_id=" . $row['id'] . "' class='btn'>archive</a></td>"; // Assign button
+                                    echo "<td>
+                                      <button class='btn-edit' onclick='openEditModal(" . json_encode($row) . ")'>Edit</button>
+                                    <button class='btn-suspended' onclick='openEditModal(" . json_encode($row) . ")'>Suspend</button>
+                                    </td>"; // Assign button
 
                                     echo "</tr>";
                                 }

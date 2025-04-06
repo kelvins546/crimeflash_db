@@ -29,7 +29,6 @@ if (isset($_GET['id'])) {
     $stmt->execute();
     $report_result = $stmt->get_result();
 
-
     if ($report_result->num_rows > 0) {
         $selectedReport = $report_result->fetch_assoc();
         if ($selectedReport['anonymous'] == 0) {
@@ -48,68 +47,61 @@ if (isset($_GET['id'])) {
     $stmt->close();
 }
 
-// Handle POST request to update crime report status
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['report_id'])) {
-    $report_id = $_POST['report_id'];
-    $officer_id = $_SESSION['officer_id'] ?? null;
-    $reasons = isset($_POST['reasons']) ? implode(", ", $_POST['reasons']) : '';
-    $additional_details = $_POST['additional_details'] ?? '';
+$sql = "SELECT media_path FROM crime_reports WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $report_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
-    if (!$officer_id) {
-        die("Unauthorized access. Please log in.");
-    }
-
-    // Insert reason for cannot respond
-    $query = "INSERT INTO cannot_respond_reports (report_id, officer_id, reasons, additional_details, created_at) VALUES (?, ?, ?, ?, NOW())";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("iiss", $report_id, $officer_id, $reasons, $additional_details);
-
-    if ($stmt->execute()) {
-        // Update crime report status to "unavailable"
-        $update_query = "UPDATE crime_reports SET status = 'unavailable' WHERE id = ?";
-        $update_stmt = $conn->prepare($update_query);
-        $update_stmt->bind_param("i", $report_id);
-        $update_stmt->execute();
-        $update_stmt->close();
-
-        echo "Response recorded successfully.";
-    } else {
-        echo "Error recording response: " . $stmt->error;
-    }
-
-    $stmt->close();
-}
-
-$image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png"; // Use default if empty
-
-// Ensure correct relative path
-if (!file_exists("../" . $image_path)) {
-    $image_path = "uploads/default.png"; // Fallback image
-}
-
-// Check if the form was submitted via POST and the report_id is set
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['report_id'])) {
-    // Sanitize and validate the report_id
-    $report_id = intval($_POST['report_id']);
-
-    // Update the report status in the database
-    $sql = "UPDATE crime_reports SET status = 'assigned' WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $report_id);
-
-    if ($stmt->execute()) {
-        // Redirect back to the report view page or a confirmation page
-        header("Location: policeview.php?id=" . $report_id);
-        exit();
-    } else {
-        echo "Error updating status: " . $conn->error;
-    }
-
-    $stmt->close();
+if ($result->num_rows > 0) {
+    $report = $result->fetch_assoc();
+    $image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png"; // Default image if none found
 } else {
-    echo "Invalid request.";
+    $image_path = "uploads/default.png";
 }
 
+// Ensure file exists, otherwise use default image
+$absolute_path = "../" . $image_path;  // Adjust relative path as needed
+if (!file_exists($absolute_path)) {
+    $image_path = "uploads/default.png";
+}
+
+$image_url = "/" . $image_path; // Path for the front-end
+
+
+// Sanitize and validate inputs
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Replacing deprecated FILTER_SANITIZE_STRING with htmlspecialchars
+    $report_id = filter_input(INPUT_POST, 'report_id', FILTER_SANITIZE_NUMBER_INT);
+    $reasons = filter_input(INPUT_POST, 'reasons', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+    $additional_details = htmlspecialchars($_POST['additional_details'], ENT_QUOTES, 'UTF-8'); // Use htmlspecialchars for additional details
+
+    if ($report_id && !empty($reasons)) {
+        // Prepare the SQL statement
+        $stmt = $conn->prepare("INSERT INTO report_response_reasons (report_id, reason, additional_details) VALUES (?, ?, ?)");
+
+        // Bind parameters and execute the statement for each reason
+        foreach ($reasons as $reason) {
+            $stmt->bind_param("iss", $report_id, $reason, $additional_details);
+            $stmt->execute();
+        }
+
+        // Close the statement
+        $stmt->close();
+
+        // Set a success flag for the modal
+        $_SESSION['success_message'] = "Response submitted successfully!";
+    } else {
+        $error_message = "Please select at least one reason.";
+    }
+}
+if (isset($_SESSION['success_message'])) {
+    // Show the modal if the success message is set
+    $success_message = $_SESSION['success_message'];
+
+    // Unset the success message after showing the modal
+    unset($_SESSION['success_message']);
+}
 
 // Query to fetch latitude and longitude
 $query = "SELECT latitude, longitude FROM crime_reports WHERE id = ?";
@@ -119,6 +111,7 @@ $stmt->execute();
 $stmt->bind_result($latitude, $longitude);
 $stmt->fetch();
 
+// Close connection after all operations are complete
 $conn->close();
 ?>
 
@@ -136,6 +129,15 @@ $conn->close();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://kit.fontawesome.com/bac1e4ca00.js" crossorigin="anonymous"></script>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- jQuery (required for your successModal trigger) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap 5 Bundle JS (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -312,6 +314,41 @@ $conn->close();
 
 
 <body>
+    <?php if (isset($success_message)) : ?>
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-body text-center">
+                    <p><?= htmlspecialchars($success_message) ?></p>
+                    <!-- You can add a custom message here if needed -->
+                    <p class="mt-2">Your response has been successfully sent to the Clerk and Admin.
+                        Please avoid submitting multiple rejections unless absolutely necessary.</p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-success" id="successOkBtn">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    // Show modal when page loads (if $success_message is set)
+    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+    successModal.show();
+
+    // Redirect to policereport.php when OK is clicked
+    document.getElementById('successOkBtn').addEventListener('click', function() {
+        window.location.href = 'policereport.php';
+    });
+    </script>
+    <?php endif; ?>
+
+
+
+    <!-- Include jQuery and Bootstrap JS -->
+
+
+
     <!-- navbar -->
     <nav class="navbar navbar-expand-lg">
         <div class="container-fluid icon-container">
@@ -342,6 +379,8 @@ $conn->close();
             <i class="fa-solid fa-sign-out-alt"></i> Logout
         </div>
     </div>
+
+
     <!-- content -->
     <div class="container mt-2">
         <?php if (!empty($selectedReport)): ?>
@@ -360,14 +399,25 @@ $conn->close();
             <p><strong>Contact:</strong> N/A</p>
             <?php endif; ?>
             <p><em>Time Reported:</em> <?= htmlspecialchars($selectedReport['created_at'] ?? 'N/A') ?></p>
-            <p class="status text-danger"><em>Station Status:
-                    <?= htmlspecialchars($selectedReport['status'] ?? 'Pending') ?></em></p>
+            <p><i>Verification Status:
+                    <span style="color: 
+                      <?php
+
+
+                        if ($selectedReport['verification_status'] == 'suspicious') echo 'orange';
+                        elseif ($selectedReport['verification_status'] == 'legitimate') echo 'blue';
+                        else echo 'gray'; // awaiting confirmation
+                        ?>">
+                        <?= htmlspecialchars($selectedReport['verification_status'] ?? 'Awaiting Confirmation') ?>
+                    </span>
+                </i></p>
             <button type="button" class="btn btn-secondary" data-bs-toggle="modal"
                 data-bs-target="#cantRespondModal">Can't Respond</button>
             <form action="../officer/policearrive.php" method="post">
                 <input type="hidden" name="report_id" value="<?php echo htmlspecialchars($report_id); ?>">
                 <button type="submit" class="btn btn-warning">On the way</button>
             </form>
+
             </a>
 
             <img src="../<?php echo htmlspecialchars($image_path); ?>" alt="Crime Report Image"
@@ -381,8 +431,11 @@ $conn->close();
         <?php endif; ?>
 
         <!-- modal -->
+        <!-- Modal -->
         <div class="modal fade" id="cantRespondModal" tabindex="-1" aria-labelledby="cantRespondModalLabel"
             aria-hidden="true">
+
+
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -391,7 +444,7 @@ $conn->close();
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <form method="POST" action="handle_response.php">
+                        <form method="POST" action="" onsubmit="return validateReasons()">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="outsideJurisdiction"
                                     name="reasons[]">
@@ -411,18 +464,49 @@ $conn->close();
                                 <input class="form-check-input" type="checkbox" id="other" name="reasons[]">
                                 <label class="form-check-label" for="other">Other</label>
                             </div>
-                            <textarea class="form-control mt-2" name="additional_details"
+
+                            <textarea class="form-control mt-2" id="additionalDetails" name="additional_details"
                                 placeholder="Additional details..."></textarea>
+
                             <input type="hidden" name="report_id"
                                 value="<?= htmlspecialchars($selectedReport['id']) ?>">
-                        </form>
                     </div>
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-danger">Submit</button>
                     </div>
+                    </form>
                 </div>
             </div>
+
+            <!-- JS VALIDATION SCRIPT -->
+            <script>
+            function validateReasons() {
+                const checkboxes = document.querySelectorAll('input[name="reasons[]"]');
+                const otherCheckbox = document.getElementById('other');
+                const additionalDetails = document.getElementById('additionalDetails');
+
+                let atLeastOneChecked = Array.from(checkboxes).some(cb => cb.checked);
+
+                if (!atLeastOneChecked) {
+                    alert("Please select at least one reason.");
+                    return false;
+                }
+
+                if (otherCheckbox.checked && additionalDetails.value.trim() === "") {
+                    alert("Please provide additional details for 'Other'.");
+                    additionalDetails.focus();
+                    return false;
+                }
+
+                return true;
+            }
+            </script>
+
         </div>
+    </div>
+
+
+
     </div>
     <script>
     // Sidenav fuNCTION//
@@ -459,6 +543,15 @@ $conn->close();
             "<b>Crime Location</b><br>Latitude: <?php echo $latitude; ?><br>Longitude: <?php echo $longitude; ?>")
         .openPopup();
     </script>
+    <?php if (isset($success_message)) : ?>
+    <script>
+    $(document).ready(function() {
+        var successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        successModal.show();
+    });
+    </script>
+    <?php endif; ?>
+
 </body>
 
 </html>

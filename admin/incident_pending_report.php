@@ -1,5 +1,8 @@
 <?php
 session_start();
+
+
+// Database connection
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -11,17 +14,40 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Logout logic
 if (isset($_POST['logout'])) {
     session_destroy(); // Destroy the session
     header('Location: admin_login.php'); // Redirect to login page
     exit();
 }
-// Fetch all crime reports
-$query = "SELECT * FROM crime_reports";
-$result = $conn->query($query);
 
 
+
+// Prepare the SQL query
+$query = "SELECT * FROM crime_reports WHERE status = 'pending'";
+
+$stmt = $conn->prepare($query);
+
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
+
+
+
+// Execute the query
+if (!$stmt->execute()) {
+    die("Execute failed: " . $stmt->error);
+}
+
+$result = $stmt->get_result();
+
+
+
+// Close the prepared statement and database connection
+$stmt->close();
+$conn->close();
 ?>
+
 
 
 <!DOCTYPE html>
@@ -49,6 +75,7 @@ $result = $conn->query($query);
         font-family: "Poppins", sans-serif;
         min-height: 100vh;
         color: #000;
+        z-index: -1;
     }
 
     .wrapper {
@@ -67,12 +94,15 @@ $result = $conn->query($query);
         top: 0;
         left: 0;
         color: #000;
+
     }
 
-    .top-nav ul {
+
+    .top-nav .navtoh {
         display: flex;
-        list-style: none;
         margin-left: 300px;
+        list-style: none;
+
     }
 
     .top-nav li a {
@@ -148,9 +178,10 @@ $result = $conn->query($query);
     .search-container {
         margin-left: 120px;
         margin-top: 100px;
-        position: relative;
         display: flex;
         align-items: center;
+        z-index: 1;
+        /* Reset z-index to avoid any unintended overlap */
     }
 
     .search-container input {
@@ -165,13 +196,15 @@ $result = $conn->query($query);
 
     .search-container i {
         position: absolute;
-        left: 37%;
-        top: 50%;
+        left: 780px;
+
+        top: 16.5%;
         transform: translateY(-50%);
         cursor: pointer;
         font-size: 1.3rem;
         color: #888;
     }
+
 
     .hero-report {
         display: flex;
@@ -187,29 +220,87 @@ $result = $conn->query($query);
 
     }
 
+    /* Table styling */
     table {
-        margin-left: 30px;
+        margin-left: 40px;
+        margin-right: 30px;
+        border-collapse: collapse;
+        border-radius: 10px;
+        /* Rounded corners for the whole table */
+        overflow: hidden;
+        /* Ensures that rounded corners are visible */
+        width: 100%;
+
     }
 
+    /* Table headers */
     th,
     td {
-        padding: 14px;
-        width: 200px;
+        padding: 14px 12px;
         text-align: center;
-        border-left: 1px solid black;
-        font-weight: normal;
+        border: 1px solid black;
 
+        font-weight: normal;
     }
 
+    /* Table header styling */
     th {
         font-size: 16px;
         color: #000;
         background-color: #EDB926;
-
     }
 
+    /* Add line between rows */
+    tr:nth-child(even) {
+        background-color: #f2f2f2;
+        /* Alternating row color for better readability */
+    }
+
+    tr:hover {
+        background-color: #ddd;
+        /* Light gray on row hover */
+    }
+
+
+    /* Suspended Button */
+    .btn-suspended {
+        background-color: #e74c3c;
+        /* Red color for suspended */
+        color: #fff;
+        /* White text for contrast */
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: normal;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .btn-suspended:hover {
+        background-color: #c0392b;
+        /* Darker red on hover */
+        box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        /* Enhanced shadow on hover */
+        transform: translateY(-2px);
+        /* Lift button effect */
+    }
+
+    .btn-suspended:active {
+        background-color: #a93226;
+        /* Even darker red when pressed */
+        transform: translateY(1px);
+        /* Slight downward movement for pressed effect */
+    }
+
+    /* General Button */
     .btn {
         background-color: #edb926;
+        /* Original button color */
         color: #000;
         padding: 6px 10px;
         font-size: 14px;
@@ -221,23 +312,60 @@ $result = $conn->query($query);
         box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
         text-decoration: none;
         display: inline-block;
-
     }
-
 
     .btn:hover {
         background-color: #d4a514;
+        /* Darken color on hover */
         box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        /* Enhanced shadow on hover */
         transform: translateY(-2px);
-
+        /* Lift button effect */
     }
-
 
     .btn:active {
         background-color: #b78b0f;
+        /* Darker color when pressed */
         transform: translateY(1px);
-
+        /* Slight downward movement for pressed effect */
     }
+
+    /* Edit Button - Gray color */
+    .btn-edit {
+        background-color: #95a5a6;
+        /* Gray color for editing */
+        color: #fff;
+        /* White text */
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: normal;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-edit:hover {
+        background-color: #7f8c8d;
+        /* Darker gray on hover */
+        box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        /* Enhanced shadow on hover */
+        transform: translateY(-2px);
+        /* Lift button effect */
+    }
+
+    .btn-edit:active {
+        background-color: #707b7c;
+        /* Even darker gray when pressed */
+        transform: translateY(1px);
+        /* Slight downward movement for pressed effect */
+    }
+
+
+
 
     .report-container {
         background: white;
@@ -307,17 +435,98 @@ $result = $conn->query($query);
         margin-top: 10px;
     }
     </style>
+    <style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        background: #fff;
+        padding: 20px;
+        margin: 10% auto;
+        width: 30%;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .close {
+        float: right;
+        font-size: 28px;
+        cursor: pointer;
+    }
+
+    /* Make the dropdown menu hidden by default */
+    .dropdown-menu {
+        display: none !important;
+        position: absolute;
+        background-color: white;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        min-width: 200px;
+        z-index: 999000 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        left: 0px !important;
+        /* Align dropdown to the left of the parent */
+        top: 100%;
+        /* Position it directly below the parent */
+        border-radius: 5px;
+    }
+
+    /* Show the dropdown when hovering over the parent */
+    .dropdown:hover .dropdown-menu {
+        display: block !important;
+    }
+
+    /* Set the parent li to position relative so we can position the dropdown properly */
+    .dropdown {
+        position: relative;
+    }
+
+    /* Optional: Ensure that dropdown items look better */
+    .dropdown-menu li a {
+        padding: 10px 15px;
+        display: block;
+        color: #333;
+        text-decoration: none;
+        z-index: 999000;
+        font-size: 16px;
+    }
+
+    .dropdown-menu li a:hover {
+        background-color: #f0f0f0;
+    }
+    </style>
 </head>
 
 <body>
     <div class="wrapper">
         <div class="navigation-bar">
             <nav class="top-nav">
-                <ul>
-                    <li><a href="admin_panel.php">Accounts</a></li>
+                <div class="navtoh">
+
+
+
+                    <div class="nav">
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle">Accounts ▾</a>
+                            <ul class="dropdown-menu">
+                                <li><a href="active_accounts.php">Active Accounts</a></li>
+                                <li><a href="suspended_accounts.php">Suspended Accounts</a></li>
+                            </ul>
+                        </li>
+                    </div>
                     <li><a href="incident_pending_report.php">Incidents Records</a></li>
                     <li><a href="archieve.html">Archive</a></li>
-                </ul>
+
+                </div>
                 <div class="admin">
                     <h3>Welcome Admin</h3>
                     <img src="images/CRIMELOGOREMOVEDBG 1.png" alt="">
@@ -396,7 +605,7 @@ $result = $conn->query($query);
                     <table>
                         <thead>
                             <tr>
-                                <th>Report ID</th>
+                                <th>ID</th>
                                 <th>Description</th>
                                 <th>Date Submitted</th>
                                 <th>Location</th>
@@ -417,13 +626,14 @@ $result = $conn->query($query);
                                     echo "<td>" . $row['location'] . "</td>";
 
                                     echo "<td>" . $row['status'] . "</td>";
-                                    echo "<td><a href='incident_details_pending.php?report_id=" . $row['id'] . "' class='btn'>view details</a></td>"; // Assign button
+                                    echo "<td><a href='incident_details_pending.php?report_id=" . $row['id'] . "' class='btn'>view</a></td>"; // Assign button
 
                                     echo "</tr>";
                                 }
                             } else {
                                 echo "<tr><td colspan='5'>No reports found.</td></tr>";
                             }
+
                             ?>
                         </tbody>
                     </table>

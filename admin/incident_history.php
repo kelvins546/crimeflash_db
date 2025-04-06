@@ -304,6 +304,44 @@ $result = $conn->query($query);
         width: 100%;
         margin-top: 10px;
     }
+
+    /* dropdown base style */
+    .dropdown {
+        position: relative;
+    }
+
+    .dropdown-toggle {
+        cursor: pointer;
+        display: block;
+    }
+
+    .dropdown-menu {
+        display: none;
+        position: absolute;
+        background-color: white;
+        min-width: 150px;
+        z-index: 999;
+        box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .dropdown-menu li a {
+        display: block;
+        padding: 10px;
+        text-decoration: none;
+        color: #333;
+    }
+
+    .dropdown-menu li a:hover {
+        background-color: #f1f1f1;
+    }
+
+    /* show dropdown on hover */
+    .dropdown:hover .dropdown-menu {
+        display: block;
+    }
     </style>
 </head>
 
@@ -312,7 +350,13 @@ $result = $conn->query($query);
         <div class="navigation-bar">
             <nav class="top-nav">
                 <ul>
-                    <li><a href="admin_panel.html">Accounts</a></li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle">Accounts ▾</a>
+                        <ul class="dropdown-menu">
+                            <li><a href="admin_panel.php">Active Accounts</a></li>
+                            <li><a href="suspended_accounts.php">Suspended Accounts</a></li>
+                        </ul>
+                    </li>
                     <li><a href="incident_pending_report.php">Incidents Records</a></li>
                     <li><a href="archieve.html">Archive</a></li>
                 </ul>

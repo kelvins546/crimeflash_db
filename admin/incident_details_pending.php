@@ -1,6 +1,9 @@
 <?php
 
 session_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -16,24 +19,91 @@ if (isset($_POST['logout'])) {
     exit();
 }
 
-// Handle AJAX request to fetch officers
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'fetch_officers') {
+// Fetch stations
+$stations_query = "SELECT DISTINCT station FROM officer_profiles WHERE status IN ('active', 'on-duty')";
+$stations_result = $conn->query($stations_query);
+$stations = [];
+if ($stations_result->num_rows > 0) {
+    while ($row = $stations_result->fetch_assoc()) {
+        $stations[] = $row['station'];
+    }
+}
+
+// Fetch officers when a station is selected
+$officers = [];
+if (isset($_POST['station']) && !empty($_POST['station'])) {
     $station = $_POST['station'];
-    $officers_query = "SELECT id, badge_number, last_name, first_name, rank FROM officer_profiles WHERE status IN ('active', 'on-duty') AND station = ?";
+    $officers_query = "SELECT id, badge_number, first_name, last_name FROM officer_profiles WHERE status IN ('active', 'on-duty') AND station = ?";
     $stmt = $conn->prepare($officers_query);
     $stmt->bind_param("s", $station);
     $stmt->execute();
     $result = $stmt->get_result();
-    $officers = [];
+
     while ($row = $result->fetch_assoc()) {
         $officers[] = $row;
     }
-    echo json_encode($officers);
-    exit();
 }
 
-// Initialize variables
-$report = [];
+// Handle officer assignment form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign'])) {
+    $station = $_POST['station'];
+    $report_id = $_POST['report_id'];
+
+    // Fetch all active/on-duty officers from the selected station
+    $officers_query = "SELECT id FROM officer_profiles WHERE status IN ('active', 'on-duty') AND station = ?";
+    $stmt = $conn->prepare($officers_query);
+    $stmt->bind_param("s", $station);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    // Prepare an array of officer IDs to be assigned
+    $officer_ids = [];
+    while ($row = $result->fetch_assoc()) {
+        $officer_ids[] = $row['id'];
+    }
+
+    if (!empty($officer_ids)) {
+        $officer_ids = array_map('strval', $officer_ids); // Ensure IDs are strings
+        $assigned_officers = json_encode($officer_ids);  // Store as JSON string array
+
+        // Update the report with the assigned officer IDs
+        $update_query = "UPDATE crime_reports SET assigned_officer_ids = ?, status = 'assigned' WHERE id = ?";
+        $stmt = $conn->prepare($update_query);
+        $stmt->bind_param("si", $assigned_officers, $report_id);
+
+        if ($stmt->execute()) {
+            // Trigger the modal display on success
+            echo  "<script>
+                    window.location.href = 'incident_pending_report.php';
+                  </script>";
+        } else {
+            echo "Error: " . $stmt->error;
+        }
+    } else {
+        echo "No active/on-duty officers available for this station.";
+    }
+}
+
+
+// Handle verification status update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status']) && isset($_POST['report_id'])) {
+    $status = $_POST['status'];  // Get the new status from the button
+    $report_id = $_POST['report_id'];  // Get the report ID
+
+    // Update query to set verification status
+    $update_query = "UPDATE crime_reports SET verification_status = ? WHERE id = ?";
+    $stmt = $conn->prepare($update_query);
+    $stmt->bind_param("si", $status, $report_id);
+
+    if ($stmt->execute()) {
+        echo "Verification status updated successfully!";
+    } else {
+        echo "Error: " . $stmt->error;
+    }
+}
+
+// Handle report retrieval logic
+// Fetch report details (same logic as in your original code)
 $user_details = null;
 $assignment_success = false;
 $error_message = '';
@@ -65,103 +135,6 @@ if (isset($_GET['report_id'])) {
     die("No report ID provided.");
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign'])) {
-    $station = $_POST['station'];
-    $assign_all = isset($_POST['assign_all']);
-    $officer_ids = $_POST['officer'] ?? [];
-
-    if ($station && isset($_GET['report_id'])) {
-        $report_id = $_GET['report_id'];
-
-        if ($assign_all) {
-            // Assign all officers from the selected station
-            $officers_query = "SELECT id FROM officer_profiles WHERE status IN ('active', 'on-duty') AND station = ?";
-            $stmt = $conn->prepare($officers_query);
-            $stmt->bind_param("s", $station);
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            $officer_ids = [];
-            while ($row = $result->fetch_assoc()) {
-                $officer_ids[] = $row['id'];
-            }
-        }
-
-        if (!empty($officer_ids)) {
-            // Assign selected officers
-            $assigned_officer_ids = json_encode($officer_ids);
-            $assign_query = "UPDATE crime_reports SET assigned_officer_ids = ? WHERE id = ?";
-            $stmt = $conn->prepare($assign_query);
-            $stmt->bind_param("si", $assigned_officer_ids, $report_id);
-
-            if ($stmt->execute()) {
-                echo "Officers assigned successfully.";
-            } else {
-                echo "Error assigning officers.";
-            }
-        } else {
-            echo "Please select officers or choose to assign all.";
-        }
-    }
-}
-
-
-
-// Fetch stations for the dropdown
-$stations_query = "SELECT DISTINCT station FROM officer_profiles WHERE status IN ('active', 'on-duty')";
-$stations_result = $conn->query($stations_query);
-$stations = [];
-if ($stations_result->num_rows > 0) {
-    while ($row = $stations_result->fetch_assoc()) {
-        $stations[] = $row['station'];
-    }
-}
-
-// Handle AJAX request for officer data
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['station'])) {
-    file_put_contents('debug.txt', print_r($_POST, true));
-
-    $station = $_POST['station'];
-
-    // Fetch officers based on the selected station
-    $officers_query = "SELECT id, badge_number, first_name, last_name FROM officer_profiles WHERE status IN ('active', 'on-duty') AND station = ?";
-    $stmt = $conn->prepare($officers_query);
-    $stmt->bind_param("s", $station);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    $officers = [];
-    while ($row = $result->fetch_assoc()) {
-        $officers[] = $row;
-    }
-
-    // Return the officers as JSON
-    echo json_encode($officers);
-    exit();
-}
-
-// Handle verification status update
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['status'], $_POST['report_id'])) {
-    $status = $_POST['status'];
-    $report_id = $_POST['report_id'];
-
-    // Validate status
-    if (!in_array($status, ['awaiting_confirmation', 'suspicious', 'legitimate'])) {
-        die("Invalid status.");
-    }
-
-    // Use MySQLi instead of PDO
-    $query = $conn->prepare("UPDATE crime_reports SET verification_status = ? WHERE id = ?");
-    $query->bind_param("si", $status, $report_id);
-
-    if ($query->execute()) {
-        echo "Verification status updated!";
-        exit;
-    } else {
-        echo "Error updating status.";
-        exit;
-    }
-}
 
 $image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png"; // Use default if empty
 
@@ -517,22 +490,22 @@ $conn->close();
         border-radius: 5px;
         font-size: 14px;
         font-weight: normal;
-        color: #fff;
+        color: #000;
         /* Text color */
-        background-color: #218d04;
+        background-color: #ccc;
         cursor: pointer;
         appearance: none;
     }
 
     /* Ensure font consistency */
     form#assignmentForm select option {
-        color: #fff;
+        color: #000;
     }
 
     /* Focus effect */
     form#assignmentForm select:focus {
         outline: none;
-        border-color: #4CAF50;
+        border-color: #ccc;
     }
 
     /* Styling for officer dropdown */
@@ -679,8 +652,16 @@ $conn->close();
 
                     <!-- ✅ Buttons to Update Verification Status -->
                     <div class="buttons">
-                        <button class="suspicious" onclick="updateStatus('suspicious')">Mark as Suspicious</button>
-                        <button class="legitimate" onclick="updateStatus('legitimate')">Mark as Legitimate</button>
+                        <!-- ✅ Buttons to Update Verification Status -->
+                        <form method="POST" action="">
+                            <input type="hidden" name="report_id" value="<?= htmlspecialchars($report_id) ?>">
+
+                            <button type="submit" name="status" value="suspicious" class="suspicious">Mark as
+                                Suspicious</button>
+                            <button type="submit" name="status" value="legitimate" class="legitimate">Mark as
+                                Legitimate</button>
+                        </form>
+
                     </div>
                     <?php else: ?>
                     <p>Report not found.</p>
@@ -688,136 +669,55 @@ $conn->close();
 
 
                     <form method="POST" action="" id="assignmentForm">
+                        <input type="hidden" name="report_id" value="<?= htmlspecialchars($report_id) ?>">
 
                         <div>
-                            <label for="station">Select Station:</label>
-                            <select name="station" id="station" class="select-phase" required>
+                            <select name="station" id="station" class="select-phase" required
+                                onchange="this.form.submit()">
                                 <option value="">Select a Station</option>
                                 <?php foreach ($stations as $station): ?>
-                                <option value="<?= htmlspecialchars($station) ?>"><?= htmlspecialchars($station) ?>
+                                <option value="<?= htmlspecialchars($station) ?>"
+                                    <?= (isset($_POST['station']) && $_POST['station'] == $station) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($station) ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
 
+                        <?php if (isset($_POST['station']) && !empty($_POST['station'])): ?>
                         <div>
-                            <label for="officer">Assign Officer(s):</label>
-                            <div id="officer-dropdown" class="checkbox-list">
-                                <p>Select a station first</p>
-                            </div>
+                            <h4>Preview: Officers at <?= htmlspecialchars($_POST['station']) ?> Station</h4>
+                            <?php if (!empty($officers)): ?>
+                            <ul>
+                                <?php foreach ($officers as $officer): ?>
+                                <li>
+                                    <?= htmlspecialchars($officer['badge_number']) ?> -
+                                    <?= htmlspecialchars($officer['first_name'] . ' ' . $officer['last_name']) ?>
+                                </li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <?php else: ?>
+                            <p>No active/on-duty officers found in this station.</p>
+                            <?php endif; ?>
                         </div>
+                        <?php endif; ?>
 
-                        <div>
-                            <input type="checkbox" name="assign_all" id="assign_all">
-                            <label for="assign_all">Assign all officers at selected station</label>
-                        </div>
-
+                        <!-- Removed the checkbox section, as you're no longer using it -->
                         <button type="submit" name="assign">Assign Officer(s)</button>
                     </form>
 
-                    <script>
-                    document.getElementById("station").addEventListener("change", function() {
-                        console.log("Form is submitting...");
-                        let checkboxes = document.querySelectorAll("input[name='officer[]']:checked");
-                        let selectedOfficers = [];
 
-                        checkboxes.forEach((checkbox) => {
-                            selectedOfficers.push(checkbox.value);
-                        });
 
-                        console.log("Selected Officers:", selectedOfficers);
-                        var station = this.value;
-                        var officerDropdown = document.getElementById("officer-dropdown");
 
-                        if (station) {
-                            var formData = new FormData();
-                            formData.append("station", station);
-                            formData.append("action", "fetch_officers");
 
-                            fetch("", {
-                                    method: "POST",
-                                    body: formData
-                                })
-                                .then(response => response.text())
-                                .then(data => {
-                                    console.log("Raw response:", data);
-                                    try {
-                                        var officers = JSON.parse(data);
-                                        console.log("Parsed officers:", officers);
 
-                                        officerDropdown.innerHTML = ""; // clear previous options
 
-                                        if (officers.length > 0) {
-                                            officers.forEach(officer => {
-                                                console.log("Adding officer:", officer);
 
-                                                let checkbox = document.createElement("input");
-                                                checkbox.type = "checkbox";
-                                                checkbox.name = "officer[]";
-                                                checkbox.value = officer.id;
-                                                checkbox.id = "officer_" + officer.id;
 
-                                                let label = document.createElement("label");
-                                                label.htmlFor = checkbox.id;
-                                                label.textContent = officer.badge_number + " - " +
-                                                    officer.first_name + " " + officer.last_name;
-
-                                                let div = document.createElement("div");
-                                                div.appendChild(checkbox);
-                                                div.appendChild(label);
-                                                officerDropdown.appendChild(div);
-                                            });
-
-                                            console.log("Final officer dropdown content:", officerDropdown
-                                                .innerHTML);
-                                        } else {
-                                            officerDropdown.innerHTML = "<p>No officers available</p>";
-                                            console.log("No officers available.");
-                                        }
-                                    } catch (error) {
-                                        console.error("JSON parse error:", error);
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error("Fetch error:", error);
-                                });
-                        } else {
-                            officerDropdown.innerHTML = "<p>Select a station first</p>";
-                        }
-                    });
-                    </script>
 
                     <!-- Handle Assign all officers or specific officers -->
 
-                    <script>
-                    document.getElementById('assignmentForm').addEventListener('submit', function(event) {
-                        event.preventDefault(); // Prevents the default form submission
 
-                        // Check if at least one officer is selected
-                        const selectedOfficers = document.querySelectorAll('input[name="officer[]"]:checked');
-                        if (selectedOfficers.length === 0) {
-                            alert('Please select at least one officer');
-                            return;
-                        }
-
-                        // Submit form data via AJAX
-                        var formData = new FormData(this); // Create form data from the form
-
-                        fetch('', {
-                                method: 'POST',
-                                body: formData
-                            })
-                            .then(response => response.text())
-                            .then(data => {
-                                // Handle server response (e.g., show a success message)
-                                alert('Officers assigned successfully!');
-                                location.reload(); // Reload the page after successful submission
-                            })
-                            .catch(error => {
-                                alert('Error assigning officers: ' + error);
-                            });
-                    });
-                    </script>
 
 
                 </div>

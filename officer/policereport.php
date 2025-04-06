@@ -22,7 +22,7 @@ if (!isset($_SESSION["officer_id"])) {
 $officer_id = (string) $_SESSION["officer_id"]; // force it to string
 $officer_json = json_encode($officer_id); // encode it as JSON
 
-$query = "SELECT * FROM crime_reports WHERE JSON_CONTAINS(assigned_officer_ids, ?, '$')";
+$query = "SELECT * FROM crime_reports  WHERE  JSON_CONTAINS(assigned_officer_ids, ?, '$')";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("s", $officer_json);
 $stmt->execute();

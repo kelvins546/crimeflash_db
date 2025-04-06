@@ -1,10 +1,10 @@
 Array
 (
-    [station] => S12
+    [report_id] => 13
+    [station] => S2
     [officer] => Array
         (
-            [0] => 29
-            [1] => 30
+            [0] => 6
         )
 
 )
