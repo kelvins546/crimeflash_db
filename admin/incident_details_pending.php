@@ -136,12 +136,25 @@ if (isset($_GET['report_id'])) {
 }
 
 
-$image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png"; // Use default if empty
+$sql = "SELECT * FROM crime_reports WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $report_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
-// Ensure correct relative path
-if (!file_exists("../uploads" . $image_path)) {
-    $image_path = "uploads/default.png"; // Fallback image
+if ($result->num_rows > 0) {
+    $report = $result->fetch_assoc();
+    $image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png";
+} else {
+    $image_path = "uploads/default.png";
 }
+
+// Check file existence
+$absolute_path = "../" . $image_path;
+if (!file_exists($absolute_path)) {
+    $image_path = "uploads/default.png";
+}
+$image_url = "/" . $image_path;
 
 // Query to fetch latitude and longitude
 $query = "SELECT latitude, longitude FROM crime_reports WHERE id = ?";
@@ -151,9 +164,137 @@ $stmt->execute();
 $stmt->bind_result($latitude, $longitude);
 $stmt->fetch();
 
+
+
+if (isset($_POST['confirmTransfer'])) {
+    $report_id = $_POST['report_id'];
+
+    // Create a connection to the database with error handling
+    $conn = new mysqli('localhost', 'root', '', 'crimeflash_db');
+
+    // Check if the connection was successful
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    }
+
+    // Fetch the details of the crime report to be transferred
+    $stmt = $conn->prepare("SELECT * FROM crime_reports WHERE id = ?");
+
+    // Check if prepare() was successful
+    if (!$stmt) {
+        die("Prepare failed for SELECT: " . $conn->error);
+    }
+
+    $stmt->bind_param("i", $report_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    // Check if the query executed successfully and returned results
+    if ($result->num_rows > 0) {
+        $report = $result->fetch_assoc();
+
+        // Ensure that you pass correct values to INSERT (including NULLs where needed)
+        $user_id = $report['user_id'];
+        $officer_id = $report['officer_id'] ?? NULL;  // Null if no officer assigned
+        $crime_type_id = $report['crime_type_id'];
+        $description = $report['description'];
+        $media_path = $report['media_path'] ?? NULL;  // Null if no media
+        $contact_number = $report['contact_number'];
+        $location = $report['location'];
+        $latitude = $report['latitude'] ?? NULL;  // Null if not available
+        $longitude = $report['longitude'] ?? NULL;  // Null if not available
+        $status = $report['status'];
+        $urgency_level = $report['urgency_level'] ?? 'medium';  // Default to 'medium'
+        $anonymous = $report['anonymous'];
+        $created_at = $report['created_at'];
+        $updated_at = $report['updated_at'];
+        $assigned_officer_id = $report['assigned_officer_id'] ?? NULL;  // Null if no officer assigned
+        $assigned_officer_ids = $report['assigned_officer_ids'] ?? NULL;  // Null if no officer IDs
+        $verification_status = $report['verification_status'] ?? 'awaiting_confirmation';  // Default if not set
+        $resolution_notes = $report['resolution_notes'] ?? NULL;  // Null if no resolution notes
+        $resolution_file = $report['resolution_file'] ?? NULL;  // Null if no resolution file
+        $resolution_datetime = $report['resolution_datetime'] ?? NULL;  // Null if no resolution datetime
+
+        // Prepare the SQL to insert into transferred_reports with error handling
+        $insert_stmt = $conn->prepare("INSERT INTO transferred_reports 
+            (user_id, officer_id, crime_type_id, description, media_path, contact_number, location, latitude, longitude, status, urgency_level, anonymous, created_at, updated_at, assigned_officer_id, assigned_officer_ids, verification_status, resolution_notes, resolution_file, resolution_datetime)
+            VALUES
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)");
+
+        // Check if prepare() was successful
+        if (!$insert_stmt) {
+            die("Prepare failed for INSERT: " . $conn->error);
+        }
+
+        // Bind the parameters for the prepared statement (match column count)
+        if (!$insert_stmt->bind_param(
+            "iissssssssisssssssss", // Match column types
+            $user_id,
+            $officer_id,
+            $crime_type_id,
+            $description,
+            $media_path,
+            $contact_number,
+            $location,
+            $latitude,
+            $longitude,
+            $status,
+            $urgency_level,
+            $anonymous,
+            $created_at,
+            $updated_at,
+            $assigned_officer_id,
+            $assigned_officer_ids,
+            $verification_status,
+            $resolution_notes,
+            $resolution_file,
+            $resolution_datetime
+        )) {
+            die("Parameter binding failed: " . $insert_stmt->error);
+        }
+
+        // Execute the insert statement with error handling
+        if (!$insert_stmt->execute()) {
+            die("Error executing INSERT: " . $insert_stmt->error);
+        } else {
+            // If the transfer is successful, delete the report from crime_reports
+            $delete_stmt = $conn->prepare("DELETE FROM crime_reports WHERE id = ?");
+
+            // Check if prepare() was successful for DELETE statement
+            if (!$delete_stmt) {
+                die("Prepare failed for DELETE: " . $conn->error);
+            }
+
+            $delete_stmt->bind_param("i", $report_id);
+
+            // Execute the delete statement with error handling
+            if (!$delete_stmt->execute()) {
+                die("Error executing DELETE: " . $delete_stmt->error);
+            } else {
+                // Redirect to incident_pending_reports.php after success
+                header("Location: incident_pending_report.php");
+                exit(); // Don't forget to call exit after header to stop further execution
+            }
+        }
+    } else {
+        // If no report found
+        echo "No such report found.";
+    }
+
+    // Safely close the connection if it's open
+    if ($conn instanceof mysqli && !$conn->connect_errno) {
+        $conn->close();
+    }
+}
+
+
+
+
+
+
+
 // Close connection
 $stmt->close();
-$conn->close();
 ?>
 
 
@@ -434,6 +575,17 @@ $conn->close();
         color: white;
     }
 
+    .ass {
+        background: green;
+        color: white;
+    }
+
+    .leg {
+        background: darkred;
+        color: #fff;
+    }
+
+
     .legitimate {
         background: goldenrod;
         color: #000;
@@ -541,6 +693,53 @@ $conn->close();
 
     form#assignmentForm button:hover {
         background-color: #45a049;
+    }
+
+    /* Modal Styles */
+    .modaltransfer {
+        display: none;
+        /* Hidden by default */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        /* Semi-transparent background */
+        justify-content: center;
+        align-items: center;
+        z-index: 999999999;
+    }
+
+    .modal-contenttransfer {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        max-width: 400px;
+        width: 80%;
+        text-align: center;
+    }
+
+    button {
+        padding: 10px 20px;
+        border: none;
+        cursor: pointer;
+        margin: 10px;
+    }
+
+    .confirm-btn {
+        background: green;
+        color: white;
+    }
+
+    .close-btn {
+        background: red;
+        color: white;
+    }
+
+    button:disabled {
+        background-color: gray;
+        cursor: not-allowed;
     }
     </style>
 </head>
@@ -661,6 +860,8 @@ $conn->close();
                             <button type="submit" name="status" value="legitimate" class="legitimate">Mark as
                                 Legitimate</button>
                         </form>
+                        <button type="button" class="ass" id="assignBtn">Assign</button>
+                        <button type="button" class="leg" id="transferBtn">Transfer</button>
 
                     </div>
                     <?php else: ?>
@@ -668,7 +869,10 @@ $conn->close();
                     <?php endif; ?>
 
 
-                    <form method="POST" action="" id="assignmentForm">
+                    <!-- Buttons to show form -->
+
+                    <!-- The form that will be shown when "Assign" button is clicked -->
+                    <form method="POST" action="" id="assignmentForm" style="display: none;">
                         <input type="hidden" name="report_id" value="<?= htmlspecialchars($report_id) ?>">
 
                         <div>
@@ -702,9 +906,108 @@ $conn->close();
                         </div>
                         <?php endif; ?>
 
-                        <!-- Removed the checkbox section, as you're no longer using it -->
                         <button type="submit" name="assign">Assign Officer(s)</button>
                     </form>
+
+                    <script>
+                    // JavaScript to handle button clicks and toggle visibility of the form
+                    document.getElementById('assignBtn').addEventListener('click', function() {
+                        // Show the form and hide the button when clicked
+                        document.getElementById('assignmentForm').style.display = 'block';
+                        document.getElementById('assignBtn').style.display =
+                            'none'; // Optionally hide the "Assign" button
+                    });
+
+                    // Optional: Add a handler for the "Transfer" button if needed
+                    document.getElementById('transferBtn').addEventListener('click', function() {
+                        // You can add logic to handle transfer action here
+
+                    });
+                    </script>
+
+
+
+                    <!-- Modal Structure -->
+                    <div id="transferModal" class="modaltransfer">
+                        <div class="modal-contenttransfer">
+                            <h2>Are you sure?</h2>
+                            <p>This report is for the Barangay only. Are you sure you want to transfer it?</p>
+                            <label>
+                                <input type="checkbox" id="confirmTransfer" />
+                                I confirm this report is for Barangay only.
+                            </label>
+                            <div>
+                                <button id="confirmBtn" class="confirm-btn" disabled>Okay</button>
+                                <button class="close-btn" id="closeBtn">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                    // Get modal and buttons
+                    const transferBtn = document.getElementById("transferBtn");
+                    const transferModal = document.getElementById("transferModal");
+                    const closeBtn = document.getElementById("closeBtn");
+                    const confirmBtn = document.getElementById("confirmBtn");
+                    const confirmCheckbox = document.getElementById("confirmTransfer");
+
+                    // Open modal when Transfer button is clicked
+                    transferBtn.addEventListener("click", function() {
+                        transferModal.style.display = "flex";
+                    });
+
+                    // Close modal when Cancel button is clicked
+                    closeBtn.addEventListener("click", function() {
+                        transferModal.style.display = "none";
+                    });
+
+                    // Enable Okay button when checkbox is checked
+                    confirmCheckbox.addEventListener("change", function() {
+                        confirmBtn.disabled = !confirmCheckbox.checked;
+                    });
+
+                    // Handle confirmation of the transfer (when Okay button is clicked)
+                    confirmBtn.addEventListener("click", function() {
+                        if (confirmCheckbox.checked) {
+                            // Your transfer logic here (e.g., submit the transfer form or make an API call)
+
+                            transferModal.style.display = "none"; // Close modal after confirming
+                        }
+                    });
+                    </script>
+                    <script>
+                    // Handle confirmation of the transfer (when Okay button is clicked)
+                    confirmBtn.addEventListener("click", function() {
+                        if (confirmCheckbox.checked) {
+                            // Create a form to send data to PHP for transferring the report
+                            const form = document.createElement("form");
+                            form.method = "POST";
+                            form.action = ""; // The current page
+
+                            // Add necessary hidden inputs to the form
+                            const reportIdInput = document.createElement("input");
+                            reportIdInput.type = "hidden";
+                            reportIdInput.name = "report_id";
+                            reportIdInput.value =
+                                "<?= $report_id ?>"; // The ID of the report you're transferring
+                            form.appendChild(reportIdInput);
+
+                            const confirmTransferInput = document.createElement("input");
+                            confirmTransferInput.type = "hidden";
+                            confirmTransferInput.name = "confirmTransfer";
+                            confirmTransferInput.value = "true";
+                            form.appendChild(confirmTransferInput);
+
+                            // Append the form to the document body and submit it
+                            document.body.appendChild(form);
+                            form.submit();
+
+                            // Close the modal
+                            transferModal.style.display = "none"; // Close modal after confirming
+                        }
+                    });
+                    </script>
+
+
 
 
 

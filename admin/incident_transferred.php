@@ -24,7 +24,7 @@ if (isset($_POST['logout'])) {
 
 
 // Prepare the SQL query
-$query = "SELECT * FROM crime_reports WHERE status = 'pending'";
+$query = "SELECT * FROM TRANSFERRED_REPORTS";
 
 $stmt = $conn->prepare($query);
 
@@ -616,7 +616,7 @@ $conn->close();
                                 <th>Date Submitted</th>
                                 <th>Location</th>
 
-                                <th>Status</th>
+
                                 <th>Action</th> <!-- Column for Action button -->
                             </tr>
                         </thead>
@@ -631,7 +631,7 @@ $conn->close();
                                     echo "<td>" . $row['created_at'] . "</td>";
                                     echo "<td>" . $row['location'] . "</td>";
 
-                                    echo "<td>" . $row['status'] . "</td>";
+
                                     echo "<td><a href='incident_details_pending.php?report_id=" . $row['id'] . "' class='btn'>view</a></td>"; // Assign button
 
                                     echo "</tr>";

@@ -15,30 +15,44 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// If coming from form submission (POST)
 if (isset($_POST['report_id'])) {
-    $report_id = $_POST['report_id'];  // Fetch the report ID from the form submission
+    $report_id = $_POST['report_id'];
+    $new_status = 'on the way'; // Make sure ENUM in database supports this
 
-    // Process the report (e.g., update status, etc.)
-    // Your SQL query here (e.g., update crime report status)
+    $update_stmt = $conn->prepare("UPDATE crime_reports SET status = ? WHERE id = ?");
+    if (!$update_stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
 
-    // After processing, redirect to avoid resubmitting the form on refresh
+    $update_stmt->bind_param("si", $new_status, $report_id);
+    if (!$update_stmt->execute()) {
+        die("Execute failed: " . $update_stmt->error);
+    }
+
+    $update_stmt->close();
+
+    // Redirect to GET method to prevent form resubmission
     header("Location: policearrive.php?report_id=" . urlencode($report_id));
     exit();
-} else {
-    // Handle if report_id is not provided in the URL (GET request)
-    if (isset($_GET['report_id'])) {
-        $report_id = $_GET['report_id'];  // Fetch the report ID from the URL
-    } else {
-        die("Report ID not provided.");
-    }
+}
+
+// ✅ Handle redirected GET access
+if (!isset($report_id) && isset($_GET['report_id'])) {
+    $report_id = $_GET['report_id'];
+}
+
+// Validate report_id before proceeding
+if (!isset($report_id)) {
+    die("No report ID provided.");
 }
 
 $selectedReport = [];
 $reporterDetails = [];
 
-// SQL Query to fetch report details and reporter information (joined)
+// Fetch report details and user info
 $stmt = $conn->prepare("
-    SELECT u.name, u.contact_number, c.anonymous, c.created_at, c.verification_status, c.latitude, c.longitude, c.user_id, C.location, c.description 
+    SELECT u.name, u.contact_number, c.anonymous, c.created_at, c.verification_status, c.latitude, c.longitude, c.user_id, c.location, c.description 
     FROM crime_reports c 
     JOIN user_profiles u ON c.user_id = u.id 
     WHERE c.id = ?");
@@ -52,17 +66,13 @@ if (!$stmt->execute()) {
 }
 $result = $stmt->get_result();
 
-if ($result === false) {
-    die("Query failed: " . $conn->error);
+if ($result === false || $result->num_rows === 0) {
+    die("No report found for ID: " . htmlspecialchars($report_id));
 }
 
-if ($result->num_rows > 0) {
-    $selectedReport = $result->fetch_assoc();
-    $user_id = $selectedReport['user_id'];
-    $anonymous = $selectedReport['anonymous'];
-} else {
-    die("No report found for ID: " . $report_id);
-}
+$selectedReport = $result->fetch_assoc();
+$user_id = $selectedReport['user_id'];
+$anonymous = $selectedReport['anonymous'];
 
 // Fetch reporter details if not anonymous
 if ($anonymous == 0) {
@@ -76,19 +86,15 @@ if ($anonymous == 0) {
     }
     $result2 = $stmt2->get_result();
 
-    if ($result2 === false) {
-        die("Query failed: " . $conn->error);
-    }
-
-    if ($result2->num_rows > 0) {
-        $reporterDetails = $result2->fetch_assoc();
-    } else {
+    if ($result2 === false || $result2->num_rows === 0) {
         die("No reporter found for user_id: " . $user_id);
     }
+
+    $reporterDetails = $result2->fetch_assoc();
+    $stmt2->close();
 }
 
-
-
+// Fetch media path
 $sql = "SELECT media_path FROM crime_reports WHERE id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $report_id);
@@ -97,27 +103,22 @@ $result = $stmt->get_result();
 
 if ($result->num_rows > 0) {
     $report = $result->fetch_assoc();
-    $image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png"; // Default image if none found
+    $image_path = !empty($report['media_path']) ? $report['media_path'] : "uploads/default.png";
 } else {
     $image_path = "uploads/default.png";
 }
 
-// Ensure file exists, otherwise use default image
-$absolute_path = "../" . $image_path;  // Adjust relative path as needed
+// Check file existence
+$absolute_path = "../" . $image_path;
 if (!file_exists($absolute_path)) {
     $image_path = "uploads/default.png";
 }
-
-$image_url = "/" . $image_path; // Path for the front-end
-
-
-
-
+$image_url = "/" . $image_path;
 
 $stmt->close();
-$stmt2->close();
 $conn->close();
 ?>
+
 
 
 

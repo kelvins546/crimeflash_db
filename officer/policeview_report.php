@@ -111,6 +111,34 @@ $stmt->execute();
 $stmt->bind_result($latitude, $longitude);
 $stmt->fetch();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_on_the_way'])) {
+    $on_the_way_id = filter_input(INPUT_POST, 'on_the_way_report_id', FILTER_SANITIZE_NUMBER_INT);
+
+    // Optional: Check if ENUM supports 'on the way' or just use 'assigned'
+    $new_status = 'on the way'; // Or 'assigned' if ENUM doesn't support 'on the way'
+
+    // Reconnect to DB (if needed, otherwise reuse $conn)
+    $conn = new mysqli($servername, $username, $password, $dbname);
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    }
+
+    $update_stmt = $conn->prepare("UPDATE crime_reports SET status = ? WHERE id = ?");
+    $update_stmt->bind_param("si", $new_status, $on_the_way_id);
+    $update_stmt->execute();
+
+    if ($update_stmt->affected_rows > 0) {
+        $_SESSION['success_message'] = "Status updated to 'on the way'";
+        header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $on_the_way_id);
+        exit;
+    } else {
+        echo "Failed to update status.";
+    }
+
+    $update_stmt->close();
+}
+
+
 // Close connection after all operations are complete
 $conn->close();
 ?>
@@ -415,8 +443,10 @@ $conn->close();
                 data-bs-target="#cantRespondModal">Can't Respond</button>
             <form action="../officer/policearrive.php" method="post">
                 <input type="hidden" name="report_id" value="<?php echo htmlspecialchars($report_id); ?>">
+                <input type="hidden" name="status" value="on the way">
                 <button type="submit" class="btn btn-warning">On the way</button>
             </form>
+
 
             </a>
 
